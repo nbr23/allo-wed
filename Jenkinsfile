@@ -25,7 +25,7 @@ pipeline {
                 }
             }
         }
-        stage('Build Nginx Server Docker Image') {
+        stage('Build') {
             when { branch 'master' }
             steps {
                 sh """
