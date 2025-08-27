@@ -1,0 +1,48 @@
+extensions:
+  "101":
+    ext: "101"
+    phone: "+15555555555"
+    timezone: "America/New_York"
+    allowed_from: "09:00"
+    allowed_until: "17:00"
+    language: "en"
+  
+  "102":
+    ext: "102"
+    phone: "+15555555555"
+    timezone: "America/Los_Angeles"
+    allowed_from: "08:30"
+    allowed_until: "18:00"
+    language: "en"
+  
+  "103":
+    ext: "103"
+    phone: "+15555555555"
+    timezone: "Europe/London"
+    allowed_from: "09:00"
+    allowed_until: "17:30"
+    language: "en"
+  
+  "104":
+    ext: "104"
+    phone: "+15555555555"
+    timezone: "Europe/Paris"
+    allowed_from: "10:00"
+    allowed_until: "16:00"
+    language: "fr"
+  
+  "105":
+    ext: "105"
+    phone: "+15555555555"
+    timezone: "Asia/Tokyo"
+    allowed_from: "09:30"
+    allowed_until: "18:30"
+    language: "ja"
+  
+  "106":
+    ext: "106"
+    phone: "+15555555555"
+    timezone: "Australia/Sydney"
+    allowed_from: "08:00"
+    allowed_until: "16:30"
+    language: "en"
