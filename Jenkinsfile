@@ -29,7 +29,7 @@ pipeline {
             when { branch 'master' }
             steps {
                 sh """
-                    docker buildx build --pull --builder \$BUILDX_BUILDER --platform linux/arm64,linux/amd64 -t nbr23/allo-wed:latest -t nbr23/allo-wed:`git rev-parse --short HEAD` -target base --push .
+                    docker buildx build --pull --builder \$BUILDX_BUILDER --platform linux/arm64,linux/amd64 -t nbr23/allo-wed:latest -t nbr23/allo-wed:`git rev-parse --short HEAD` --target base --push .
                     """
             }
         }
@@ -37,7 +37,7 @@ pipeline {
             when { branch 'master' }
             steps {
                 sh """
-                    docker buildx build --pull --builder \$BUILDX_BUILDER --platform linux/arm64 -t nbr23/allo-wed:asterisk -t nbr23/allo-wed:asterisk-`git rev-parse --short HEAD` -target asterisk --push .
+                    docker buildx build --pull --builder \$BUILDX_BUILDER --platform linux/arm64 -t nbr23/allo-wed:asterisk -t nbr23/allo-wed:asterisk-`git rev-parse --short HEAD` --target asterisk --push .
                     """
             }
         }
