@@ -16,3 +16,10 @@ ARG TARGETOS
 COPY --from=builder /build/allo-wed-${TARGETOS}-${TARGETARCH} /usr/bin/allo-wed
 
 ENTRYPOINT ["allo-wed"]
+
+# Asterisk
+FROM --platform=${TARGETOS}/${TARGETARCH} nbr23/asterisk:latest AS asterisk
+ARG TARGETARCH
+ARG TARGETOS
+
+COPY --from=builder /build/allo-wed-${TARGETOS}-${TARGETARCH} /usr/bin/allo-wed
