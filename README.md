@@ -14,6 +14,7 @@ A simple Go utility to check if phone calls to extensions are allowed based on t
 - `-is-allowed`: Check if call is currently allowed (returns true/false)
 - `-language`: Get the language for the extension
 - `-phone`: Get phone number if call is allowed
+- `-playback`: Get playback name for specified playback type
 - `-debug`: Print debug information about time calculations
 
 ### Examples
@@ -28,13 +29,16 @@ A simple Go utility to check if phone calls to extensions are allowed based on t
 # Get language for extension 103
 ./allo-wed -config config.yaml -language 103
 
+# Get playback name for "not-available" type
+./allo-wed -config config.yaml -playback not-available 101
+
 # Debug time calculations for extension 101
 ./allo-wed -config config.yaml -debug -is-allowed 101
 ```
 
 ## Config Format
 
-The config file is a YAML file with extension definitions:
+The config file is a YAML file with extension definitions. Each extension can optionally include audio playback definitions:
 
 ```yaml
 extensions:
@@ -45,6 +49,10 @@ extensions:
     allowed_from: "09:00"
     allowed_until: "17:00"
     language: "en"
+    audio_playbacks:
+      not-available: "not-available"
+      busy: "busy"
+      offline: "offline"
 ```
 
 See `config.sample.yaml` for a complete example.
