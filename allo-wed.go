@@ -88,6 +88,13 @@ func main() {
 
 	allowed := isCallAllowed(person, *debug)
 
+	if *isAllowed && *getPhone {
+		if allowed {
+			fmt.Print(person.Phone)
+		}
+		return
+	}
+
 	if *isAllowed {
 		if allowed {
 			fmt.Print("true")
@@ -98,9 +105,7 @@ func main() {
 	}
 
 	if *getPhone {
-		if allowed {
-			fmt.Print(person.Phone)
-		}
+		fmt.Print(person.Phone)
 		return
 	}
 }
