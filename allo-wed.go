@@ -11,13 +11,13 @@ import (
 )
 
 type Extension struct {
-	Ext            string            `yaml:"ext"`
-	Phone          string            `yaml:"phone"`
-	Timezone       string            `yaml:"timezone"`
-	AllowedFrom    string            `yaml:"allowed_from"`
-	AllowedUntil   string            `yaml:"allowed_until"`
-	Language       string            `yaml:"language"`
-	AudioPlaybacks map[string]string `yaml:"audio_playbacks"`
+	Ext         string `yaml:"ext"`
+	Phone       string `yaml:"phone"`
+	ContactName string `yaml:"contact_name"`
+	Timezone    string `yaml:"timezone"`
+	AllowedFrom string `yaml:"allowed_from"`
+	AllowedUntil string `yaml:"allowed_until"`
+	Language    string `yaml:"language"`
 }
 
 type Config struct {
@@ -27,8 +27,8 @@ type Config struct {
 func main() {
 	var isAllowed = flag.Bool("is-allowed", false, "Check if call is allowed")
 	var getLanguage = flag.Bool("language", false, "Get language")
+	var getName = flag.Bool("name", false, "Get contact name")
 	var getPhone = flag.Bool("phone", false, "Get phone number if allowed")
-	var getPlayback = flag.String("playback", "", "Get playback name for specified type")
 	var debug = flag.Bool("debug", false, "Print debug information")
 	var configPath = flag.String("config", "", "Path to the config file")
 	flag.Parse()
@@ -73,18 +73,11 @@ func main() {
 		return
 	}
 
-	if *getPlayback != "" {
-		if person.AudioPlaybacks != nil {
-			if playback, exists := person.AudioPlaybacks[*getPlayback]; exists {
-				fmt.Print(playback)
-			} else {
-				log.Fatal("Playback type not found")
-			}
-		} else {
-			log.Fatal("No audio playbacks configured for this extension")
-		}
+	if *getName {
+		fmt.Print(person.ContactName)
 		return
 	}
+
 
 	allowed := isCallAllowed(person, *debug)
 

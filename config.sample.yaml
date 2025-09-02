@@ -2,14 +2,11 @@ extensions:
   "101":
     ext: "101"
     phone: "+15555555555"
+    contact_name: "John Doe"
     timezone: "America/New_York"
     allowed_from: "09:00"
     allowed_until: "17:00"
     language: "en"
-    audio_playbacks:
-      not-available: "en/not-available"
-      busy: "en/busy"
-      offline: "en/offline"
   
   "102":
     ext: "102"
