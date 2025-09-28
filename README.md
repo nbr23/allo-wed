@@ -2,6 +2,8 @@
 
 A simple Go utility to check if phone calls to extensions are allowed based on timezone and time restrictions.
 
+This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix/) project.
+
 ## Usage
 
 ```bash
