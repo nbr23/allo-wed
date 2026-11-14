@@ -9,6 +9,11 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Test') {
+            steps {
+                sh 'docker run --rm -v "$WORKSPACE":/src -w /src golang:alpine go test ./...'
+            }
+        }
         stage('Prep buildx') {
             when { branch 'master' }
             steps {
