@@ -7,8 +7,11 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 ## Usage
 
 ```bash
-./allo-wed -config config.yaml [flags] <extension>
+./allo-wed -config config.yaml <mode flag> [-debug] <extension>
+./allo-wed -config config.yaml -validate
 ```
+
+One mode flag (`-is-allowed`, `-phone`, `-language`, `-name`, `-next-allowed` or `-validate`) is required; without one, the usage is printed to stderr and the exit status is non-zero.
 
 ### Flags
 
@@ -19,7 +22,7 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 - `-phone`: Get phone number (always returns phone number unless combined with -is-allowed)
 - `-next-allowed`: Get the next time calls to the extension are allowed, as `HHMM` in `caller_timezone`, rounded up to the quarter hour. Prints nothing and exits non-zero if `caller_timezone` is not set
 - `-validate`: Check the config file and exit, without an extension argument. Prints nothing and exits zero when the config is valid; otherwise prints every problem to stderr and exits non-zero
-- `-debug`: Print debug information about time calculations
+- `-debug`: Print debug information about time calculations to stderr, leaving stdout to the requested value
 
 ### Examples
 

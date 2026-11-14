@@ -11,7 +11,17 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'docker run --rm -v "$WORKSPACE":/src -w /src golang:alpine go test ./...'
+                sh '''
+                    docker run --rm -v "$WORKSPACE":/src -w /src golang:alpine sh -c '
+                        unformatted="$(gofmt -l .)"
+                        if [ -n "$unformatted" ]; then
+                            echo "gofmt needed on:" >&2
+                            echo "$unformatted" >&2
+                            exit 1
+                        fi
+                        go vet ./... && go test ./...
+                    '
+                    '''
             }
         }
         stage('Prep buildx') {

@@ -115,8 +115,9 @@ func main() {
 	if *validate {
 		wantArgs = 0
 	}
-	if len(args) != wantArgs {
-		log.Fatal("Usage: program [flags] <extension>\n       program -config <path> -validate")
+	hasMode := *isAllowed || *getLanguage || *getName || *getPhone || *getNextAllowed || *validate
+	if !hasMode || len(args) != wantArgs {
+		log.Fatal("Usage: program -config <path> <-is-allowed|-phone|-language|-name|-next-allowed> [-debug] <extension>\n       program -config <path> -validate")
 	}
 
 	if *configPath == "" {
@@ -192,47 +193,41 @@ func main() {
 }
 
 func isCallAllowed(ext Extension, now time.Time, debug bool) bool {
-	if debug {
-		fmt.Printf("DEBUG: Extension: %s\n", ext.Ext)
-		fmt.Printf("DEBUG: Phone: %s\n", ext.Phone)
-		fmt.Printf("DEBUG: Timezone: %s\n", ext.Timezone)
-		fmt.Printf("DEBUG: Allowed from: %s\n", ext.AllowedFrom)
-		fmt.Printf("DEBUG: Allowed until: %s\n", ext.AllowedUntil)
+	debugf := func(format string, args ...any) {
+		if debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: "+format+"\n", args...)
+		}
 	}
 
+	debugf("Extension: %s", ext.Ext)
+	debugf("Phone: %s", ext.Phone)
+	debugf("Timezone: %s", ext.Timezone)
+	debugf("Allowed from: %s", ext.AllowedFrom)
+	debugf("Allowed until: %s", ext.AllowedUntil)
+
 	if ext.Timezone == "" {
-		if debug {
-			fmt.Printf("DEBUG: Error parsing timezone: timezone is empty\n")
-		}
+		debugf("Error parsing timezone: timezone is empty")
 		return false
 	}
 
 	loc, err := time.LoadLocation(ext.Timezone)
 	if err != nil {
-		if debug {
-			fmt.Printf("DEBUG: Error parsing timezone: %v\n", err)
-		}
+		debugf("Error parsing timezone: %v", err)
 		return false
 	}
 
 	now = now.In(loc)
-	if debug {
-		fmt.Printf("DEBUG: Current time in %s: %s\n", ext.Timezone, now.Format("2006-01-02 15:04:05"))
-	}
+	debugf("Current time in %s: %s", ext.Timezone, now.Format("2006-01-02 15:04:05"))
 
 	from, err := time.Parse(clockLayout, ext.AllowedFrom)
 	if err != nil {
-		if debug {
-			fmt.Printf("DEBUG: Error parsing allowed_from time: %v\n", err)
-		}
+		debugf("Error parsing allowed_from time: %v", err)
 		return false
 	}
 
 	until, err := time.Parse(clockLayout, ext.AllowedUntil)
 	if err != nil {
-		if debug {
-			fmt.Printf("DEBUG: Error parsing allowed_until time: %v\n", err)
-		}
+		debugf("Error parsing allowed_until time: %v", err)
 		return false
 	}
 
@@ -243,20 +238,16 @@ func isCallAllowed(ext Extension, now time.Time, debug bool) bool {
 	afterFrom := nowMinutes >= fromMinutes
 	beforeUntil := nowMinutes < untilMinutes
 
-	if debug {
-		fmt.Printf("DEBUG: Allowed from time: %s\n", from.Format("15:04"))
-		fmt.Printf("DEBUG: Allowed until time: %s\n", until.Format("15:04"))
-		fmt.Printf("DEBUG: Is after from time: %t\n", afterFrom)
-		fmt.Printf("DEBUG: Is before until time: %t\n", beforeUntil)
-	}
+	debugf("Allowed from time: %s", from.Format(clockLayout))
+	debugf("Allowed until time: %s", until.Format(clockLayout))
+	debugf("Is after from time: %t", afterFrom)
+	debugf("Is before until time: %t", beforeUntil)
 
 	allowed := afterFrom && beforeUntil
 	if fromMinutes > untilMinutes {
 		allowed = afterFrom || beforeUntil
 	}
-	if debug {
-		fmt.Printf("DEBUG: Call allowed: %t\n", allowed)
-	}
+	debugf("Call allowed: %t", allowed)
 
 	return allowed
 }

@@ -215,3 +215,160 @@ func TestLoadConfig(t *testing.T) {
 		}
 	})
 }
+
+func TestNextAllowedStart(t *testing.T) {
+	newYork := mustLoadLocation(t, "America/New_York")
+
+	from := func(tz, allowedFrom string) Extension {
+		return Extension{Ext: "101", Timezone: tz, AllowedFrom: allowedFrom, AllowedUntil: "17:00"}
+	}
+	morning := from("America/New_York", "09:00")
+
+	at := func(month time.Month, d, hour, minute int) time.Time {
+		return time.Date(2026, month, d, hour, minute, 0, 0, newYork)
+	}
+
+	tests := []struct {
+		name string
+		ext  Extension
+		now  time.Time
+		want time.Time
+	}{
+		{"before from is today", morning, at(time.January, 15, 8, 0), at(time.January, 15, 9, 0)},
+		{"exactly at from is tomorrow", morning, at(time.January, 15, 9, 0), at(time.January, 16, 9, 0)},
+		{"inside window is tomorrow", morning, at(time.January, 15, 12, 0), at(time.January, 16, 9, 0)},
+		{"after window is tomorrow", morning, at(time.January, 15, 20, 0), at(time.January, 16, 9, 0)},
+		{"month end rolls over", morning, at(time.January, 31, 12, 0), at(time.February, 1, 9, 0)},
+		{"year end rolls over", morning, at(time.December, 31, 12, 0), time.Date(2027, time.January, 1, 9, 0, 0, 0, newYork)},
+		{"utc clock before from", morning, time.Date(2026, time.January, 15, 13, 30, 0, 0, time.UTC), at(time.January, 15, 9, 0)},
+		{"utc clock on the next utc day", morning, time.Date(2026, time.January, 16, 2, 0, 0, 0, time.UTC), at(time.January, 16, 9, 0)},
+		{"evening before spring forward", morning, at(time.March, 7, 12, 0), at(time.March, 8, 9, 0)},
+		{"evening before fall back", morning, at(time.October, 31, 12, 0), at(time.November, 1, 9, 0)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := nextAllowedStart(tt.ext, tt.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.Equal(tt.want) {
+				t.Errorf("nextAllowedStart(from %s, %s) = %s, want %s",
+					tt.ext.AllowedFrom, tt.now.Format(time.RFC3339), got.Format(time.RFC3339), tt.want.Format(time.RFC3339))
+			}
+			if got.Location().String() != tt.ext.Timezone {
+				t.Errorf("nextAllowedStart() location = %s, want %s", got.Location(), tt.ext.Timezone)
+			}
+		})
+	}
+
+	failures := []struct {
+		name string
+		ext  Extension
+	}{
+		{"unknown timezone", from("Mars/Olympus_Mons", "09:00")},
+		{"malformed allowed_from", from("America/New_York", "9am")},
+	}
+
+	for _, tt := range failures {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, err := nextAllowedStart(tt.ext, at(time.January, 15, 12, 0)); err == nil {
+				t.Errorf("nextAllowedStart() = %s, want error", got.Format(time.RFC3339))
+			}
+		})
+	}
+}
+
+func TestRoundUpToQuarter(t *testing.T) {
+	kathmandu := mustLoadLocation(t, "Asia/Kathmandu")
+
+	utc := func(d, hour, minute, second int) time.Time {
+		return time.Date(2026, time.January, d, hour, minute, second, 0, time.UTC)
+	}
+
+	tests := []struct {
+		name string
+		in   time.Time
+		want time.Time
+	}{
+		{"on the hour", utc(15, 9, 0, 0), utc(15, 9, 0, 0)},
+		{"on a quarter", utc(15, 9, 45, 0), utc(15, 9, 45, 0)},
+		{"one minute past", utc(15, 9, 1, 0), utc(15, 9, 15, 0)},
+		{"one minute short", utc(15, 9, 14, 0), utc(15, 9, 15, 0)},
+		{"rolls to the next hour", utc(15, 9, 46, 0), utc(15, 10, 0, 0)},
+		{"rolls to the next day", utc(15, 23, 50, 0), utc(16, 0, 0, 0)},
+		{"seconds are dropped", utc(15, 9, 0, 30), utc(15, 9, 0, 0)},
+		{
+			"quarters follow the local clock",
+			time.Date(2026, time.January, 15, 9, 20, 0, 0, kathmandu),
+			time.Date(2026, time.January, 15, 9, 30, 0, 0, kathmandu),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := roundUpToQuarter(tt.in); !got.Equal(tt.want) {
+				t.Errorf("roundUpToQuarter(%s) = %s, want %s",
+					tt.in.Format(time.RFC3339), got.Format(time.RFC3339), tt.want.Format(time.RFC3339))
+			}
+		})
+	}
+}
+
+func TestNextAllowedForCaller(t *testing.T) {
+	newYork := mustLoadLocation(t, "America/New_York")
+
+	from := func(tz, allowedFrom string) Extension {
+		return Extension{Ext: "101", Timezone: tz, AllowedFrom: allowedFrom, AllowedUntil: "17:00"}
+	}
+	morning := from("America/New_York", "09:00")
+	winterEvening := time.Date(2026, time.January, 15, 20, 0, 0, 0, newYork)
+
+	tests := []struct {
+		name   string
+		ext    Extension
+		caller string
+		now    time.Time
+		want   string
+	}{
+		{"converted to the caller's timezone", morning, "Europe/Paris", winterEvening, "1500"},
+		{"same timezone", morning, "America/New_York", winterEvening, "0900"},
+		{"only the contact is on dst", morning, "Europe/Paris", time.Date(2026, time.March, 10, 20, 0, 0, 0, newYork), "1400"},
+		{"rounded up to the quarter", from("America/New_York", "09:10"), "Europe/Paris", winterEvening, "1515"},
+		{"rounded past midnight", from("America/New_York", "17:50"), "Europe/Paris", winterEvening, "0000"},
+		{"45 minute offset contact", from("Asia/Kathmandu", "09:00"), "Europe/Paris", winterEvening, "0415"},
+		{"45 minute offset caller", morning, "Asia/Kathmandu", winterEvening, "1945"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := nextAllowedForCaller(tt.ext, tt.caller, tt.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("nextAllowedForCaller(from %s %q, %q) = %q, want %q",
+					tt.ext.AllowedFrom, tt.ext.Timezone, tt.caller, got, tt.want)
+			}
+		})
+	}
+
+	failures := []struct {
+		name   string
+		ext    Extension
+		caller string
+	}{
+		{"caller timezone not set", morning, ""},
+		{"unknown caller timezone", morning, "Mars/Olympus_Mons"},
+		{"unknown contact timezone", from("Mars/Olympus_Mons", "09:00"), "Europe/Paris"},
+		{"malformed allowed_from", from("America/New_York", "9am"), "Europe/Paris"},
+	}
+
+	for _, tt := range failures {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, err := nextAllowedForCaller(tt.ext, tt.caller, winterEvening); err == nil {
+				t.Errorf("nextAllowedForCaller() = %q, want error", got)
+			}
+		})
+	}
+}
