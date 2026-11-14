@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
+	"slices"
 	"time"
 	_ "time/tzdata"
 
@@ -27,36 +29,110 @@ type Config struct {
 	Extensions     map[string]Extension `yaml:"extensions"`
 }
 
+const clockLayout = "15:04"
+
+func (e Extension) validate() []error {
+	var errs []error
+
+	if e.Ext == "" {
+		errs = append(errs, errors.New("ext is empty"))
+	}
+
+	if e.Timezone == "" {
+		errs = append(errs, errors.New("timezone is empty"))
+	} else if _, err := time.LoadLocation(e.Timezone); err != nil {
+		errs = append(errs, fmt.Errorf("timezone: %w", err))
+	}
+
+	if _, err := time.Parse(clockLayout, e.AllowedFrom); err != nil {
+		errs = append(errs, fmt.Errorf("allowed_from: %w", err))
+	}
+
+	if _, err := time.Parse(clockLayout, e.AllowedUntil); err != nil {
+		errs = append(errs, fmt.Errorf("allowed_until: %w", err))
+	}
+
+	return errs
+}
+
+func (c Config) validate() error {
+	var errs []error
+
+	if c.CallerTimezone != "" {
+		if _, err := time.LoadLocation(c.CallerTimezone); err != nil {
+			errs = append(errs, fmt.Errorf("caller_timezone: %w", err))
+		}
+	}
+
+	keyByExt := map[string]string{}
+	for _, key := range slices.Sorted(maps.Keys(c.Extensions)) {
+		e := c.Extensions[key]
+		for _, err := range e.validate() {
+			errs = append(errs, fmt.Errorf("extension %q: %w", key, err))
+		}
+
+		if e.Ext == "" {
+			continue
+		}
+		if first, ok := keyByExt[e.Ext]; ok {
+			errs = append(errs, fmt.Errorf("ext %q is used by extensions %q and %q", e.Ext, first, key))
+			continue
+		}
+		keyByExt[e.Ext] = key
+	}
+
+	return errors.Join(errs...)
+}
+
+func loadConfig(path string) (Config, error) {
+	var config Config
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return config, err
+	}
+
+	if err := yaml.UnmarshalStrict(data, &config); err != nil {
+		return config, err
+	}
+
+	return config, config.validate()
+}
+
 func main() {
 	var isAllowed = flag.Bool("is-allowed", false, "Check if call is allowed")
 	var getLanguage = flag.Bool("language", false, "Get language")
 	var getName = flag.Bool("name", false, "Get contact name")
 	var getPhone = flag.Bool("phone", false, "Get phone number if allowed")
 	var getNextAllowed = flag.Bool("next-allowed", false, "Get the next time calls are allowed, as HHMM in the caller's timezone")
+	var validate = flag.Bool("validate", false, "Check the config file and exit, without looking up an extension")
 	var debug = flag.Bool("debug", false, "Print debug information")
 	var configPath = flag.String("config", "", "Path to the config file")
 	flag.Parse()
 
 	args := flag.Args()
-	if len(args) != 1 {
-		log.Fatal("Usage: program [flags] <extension>")
+	wantArgs := 1
+	if *validate {
+		wantArgs = 0
+	}
+	if len(args) != wantArgs {
+		log.Fatal("Usage: program [flags] <extension>\n       program -config <path> -validate")
 	}
 
 	if *configPath == "" {
 		log.Fatal("a config file path is required")
 	}
 
-	ext := args[0]
-
-	data, err := os.ReadFile(*configPath)
+	config, err := loadConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		log.Fatal(err)
+	if *validate {
+		return
 	}
+
+	ext := args[0]
 
 	var person Extension
 	var found bool
@@ -144,7 +220,7 @@ func isCallAllowed(ext Extension, now time.Time, debug bool) bool {
 		fmt.Printf("DEBUG: Current time in %s: %s\n", ext.Timezone, now.Format("2006-01-02 15:04:05"))
 	}
 
-	from, err := time.Parse("15:04", ext.AllowedFrom)
+	from, err := time.Parse(clockLayout, ext.AllowedFrom)
 	if err != nil {
 		if debug {
 			fmt.Printf("DEBUG: Error parsing allowed_from time: %v\n", err)
@@ -152,7 +228,7 @@ func isCallAllowed(ext Extension, now time.Time, debug bool) bool {
 		return false
 	}
 
-	until, err := time.Parse("15:04", ext.AllowedUntil)
+	until, err := time.Parse(clockLayout, ext.AllowedUntil)
 	if err != nil {
 		if debug {
 			fmt.Printf("DEBUG: Error parsing allowed_until time: %v\n", err)
@@ -191,7 +267,7 @@ func nextAllowedStart(ext Extension, now time.Time) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	from, err := time.Parse("15:04", ext.AllowedFrom)
+	from, err := time.Parse(clockLayout, ext.AllowedFrom)
 	if err != nil {
 		return time.Time{}, err
 	}

@@ -18,6 +18,7 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 - `-name`: Get the contact name for the extension
 - `-phone`: Get phone number (always returns phone number unless combined with -is-allowed)
 - `-next-allowed`: Get the next time calls to the extension are allowed, as `HHMM` in `caller_timezone`, rounded up to the quarter hour. Prints nothing and exits non-zero if `caller_timezone` is not set
+- `-validate`: Check the config file and exit, without an extension argument. Prints nothing and exits zero when the config is valid; otherwise prints every problem to stderr and exits non-zero
 - `-debug`: Print debug information about time calculations
 
 ### Examples
@@ -43,6 +44,9 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 
 # Debug time calculations for extension 101
 ./allo-wed -config config.yaml -debug -is-allowed 101
+
+# Check the config file, e.g. before deploying it
+./allo-wed -config config.yaml -validate
 ```
 
 ## Config Format
@@ -64,5 +68,12 @@ extensions:
 ```
 
 `caller_timezone` is optional and only used by `-next-allowed`: it is the timezone of the person placing the calls, so the next allowed time can be reported in their local time rather than the contact's.
+
+The config is validated every time it is loaded, and an invalid config makes every mode fail, not only lookups of the faulty extension:
+
+- `caller_timezone`, when set, and each extension's `timezone` must be known IANA timezone names; `timezone` is required
+- `allowed_from` and `allowed_until` must be 24-hour `HH:MM` times
+- `ext` is required and must be unique across extensions
+- extension keys must be unique, and unknown fields are rejected
 
 See `config.sample.yaml` for a complete example.
