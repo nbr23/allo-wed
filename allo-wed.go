@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -21,7 +22,8 @@ type Extension struct {
 }
 
 type Config struct {
-	Extensions map[string]Extension `yaml:"extensions"`
+	CallerTimezone string               `yaml:"caller_timezone"`
+	Extensions     map[string]Extension `yaml:"extensions"`
 }
 
 func main() {
@@ -29,6 +31,7 @@ func main() {
 	var getLanguage = flag.Bool("language", false, "Get language")
 	var getName = flag.Bool("name", false, "Get contact name")
 	var getPhone = flag.Bool("phone", false, "Get phone number if allowed")
+	var getNextAllowed = flag.Bool("next-allowed", false, "Get the next time calls are allowed, as HHMM in the caller's timezone")
 	var debug = flag.Bool("debug", false, "Print debug information")
 	var configPath = flag.String("config", "", "Path to the config file")
 	flag.Parse()
@@ -78,6 +81,14 @@ func main() {
 		return
 	}
 
+	if *getNextAllowed {
+		next, err := nextAllowedForCaller(person, config.CallerTimezone, time.Now())
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(next)
+		return
+	}
 
 	allowed := isCallAllowed(person, *debug)
 
@@ -158,4 +169,50 @@ func isCallAllowed(ext Extension, debug bool) bool {
 	}
 
 	return allowed
+}
+
+func nextAllowedStart(ext Extension, now time.Time) (time.Time, error) {
+	loc, err := time.LoadLocation(ext.Timezone)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	from, err := time.Parse("15:04", ext.AllowedFrom)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	now = now.In(loc)
+	start := time.Date(now.Year(), now.Month(), now.Day(), from.Hour(), from.Minute(), 0, 0, loc)
+	if !start.After(now) {
+		start = time.Date(now.Year(), now.Month(), now.Day()+1, from.Hour(), from.Minute(), 0, 0, loc)
+	}
+
+	return start, nil
+}
+
+func roundUpToQuarter(t time.Time) time.Time {
+	t = t.Truncate(time.Minute)
+	if rem := t.Minute() % 15; rem != 0 {
+		t = t.Add(time.Duration(15-rem) * time.Minute)
+	}
+	return t
+}
+
+func nextAllowedForCaller(ext Extension, callerTimezone string, now time.Time) (string, error) {
+	if callerTimezone == "" {
+		return "", errors.New("caller_timezone is not set")
+	}
+
+	callerLoc, err := time.LoadLocation(callerTimezone)
+	if err != nil {
+		return "", err
+	}
+
+	start, err := nextAllowedStart(ext, now)
+	if err != nil {
+		return "", err
+	}
+
+	return roundUpToQuarter(start.In(callerLoc)).Format("1504"), nil
 }

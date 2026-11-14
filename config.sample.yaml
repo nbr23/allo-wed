@@ -1,3 +1,5 @@
+caller_timezone: "Europe/Paris"
+
 extensions:
   "101":
     ext: "101"

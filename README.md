@@ -17,6 +17,7 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 - `-language`: Get the language for the extension
 - `-name`: Get the contact name for the extension
 - `-phone`: Get phone number (always returns phone number unless combined with -is-allowed)
+- `-next-allowed`: Get the next time calls to the extension are allowed, as `HHMM` in `caller_timezone`, rounded up to the quarter hour. Prints nothing and exits non-zero if `caller_timezone` is not set
 - `-debug`: Print debug information about time calculations
 
 ### Examples
@@ -37,6 +38,9 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 # Get contact name for extension 101
 ./allo-wed -config config.yaml -name 101
 
+# Get the next time calls to extension 101 are allowed, in the caller's timezone (e.g. 1500)
+./allo-wed -config config.yaml -next-allowed 101
+
 # Debug time calculations for extension 101
 ./allo-wed -config config.yaml -debug -is-allowed 101
 ```
@@ -46,6 +50,8 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 The config file is a YAML file with extension definitions:
 
 ```yaml
+caller_timezone: "Europe/Paris"
+
 extensions:
   "101":
     ext: "101"
@@ -56,5 +62,7 @@ extensions:
     allowed_until: "17:00"
     language: "en"
 ```
+
+`caller_timezone` is optional and only used by `-next-allowed`: it is the timezone of the person placing the calls, so the next allowed time can be reported in their local time rather than the contact's.
 
 See `config.sample.yaml` for a complete example.
