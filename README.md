@@ -11,7 +11,7 @@ This tool is part of the [telefonefix](https://wip.tf/posts/telefonefix-building
 ./allo-wed -config config.yaml -validate
 ```
 
-One mode flag (`-is-allowed`, `-phone`, `-language`, `-name`, `-next-allowed` or `-validate`) is required; without one, the usage is printed to stderr and the exit status is non-zero.
+One mode flag (`-is-allowed`, `-phone`, `-language`, `-name`, `-next-allowed`, `-next-allowed-day` or `-validate`) is required; without one, the usage is printed to stderr and the exit status is non-zero.
 
 ### Flags
 
@@ -21,6 +21,7 @@ One mode flag (`-is-allowed`, `-phone`, `-language`, `-name`, `-next-allowed` or
 - `-name`: Get the contact name for the extension
 - `-phone`: Get phone number (always returns phone number unless combined with -is-allowed)
 - `-next-allowed`: Get the next time calls to the extension are allowed, as `HHMM` in `caller_timezone`, rounded up to the quarter hour. Prints nothing and exits non-zero if `caller_timezone` is not set
+- `-next-allowed-day`: Get whether the time reported by `-next-allowed` is `today` or `tomorrow` in `caller_timezone`. Prints nothing and exits non-zero if `caller_timezone` is not set
 - `-validate`: Check the config file and exit, without an extension argument. Prints nothing and exits zero when the config is valid; otherwise prints every problem to stderr and exits non-zero
 - `-debug`: Print debug information about time calculations to stderr, leaving stdout to the requested value
 
@@ -44,6 +45,9 @@ One mode flag (`-is-allowed`, `-phone`, `-language`, `-name`, `-next-allowed` or
 
 # Get the next time calls to extension 101 are allowed, in the caller's timezone (e.g. 1500)
 ./allo-wed -config config.yaml -next-allowed 101
+
+# Get whether that time is today or tomorrow for the caller (e.g. tomorrow)
+./allo-wed -config config.yaml -next-allowed-day 101
 
 # Debug time calculations for extension 101
 ./allo-wed -config config.yaml -debug -is-allowed 101
@@ -70,7 +74,7 @@ extensions:
     language: "en"
 ```
 
-`caller_timezone` is optional and only used by `-next-allowed`: it is the timezone of the person placing the calls, so the next allowed time can be reported in their local time rather than the contact's.
+`caller_timezone` is optional and only used by `-next-allowed` and `-next-allowed-day`: it is the timezone of the person placing the calls, so the next allowed time can be reported in their local time rather than the contact's.
 
 The config is validated every time it is loaded, and an invalid config makes every mode fail, not only lookups of the faulty extension:
 

@@ -105,6 +105,7 @@ func main() {
 	var getName = flag.Bool("name", false, "Get contact name")
 	var getPhone = flag.Bool("phone", false, "Get phone number if allowed")
 	var getNextAllowed = flag.Bool("next-allowed", false, "Get the next time calls are allowed, as HHMM in the caller's timezone")
+	var getNextAllowedDay = flag.Bool("next-allowed-day", false, "Get whether the next time calls are allowed is today or tomorrow in the caller's timezone")
 	var validate = flag.Bool("validate", false, "Check the config file and exit, without looking up an extension")
 	var debug = flag.Bool("debug", false, "Print debug information")
 	var configPath = flag.String("config", "", "Path to the config file")
@@ -115,9 +116,9 @@ func main() {
 	if *validate {
 		wantArgs = 0
 	}
-	hasMode := *isAllowed || *getLanguage || *getName || *getPhone || *getNextAllowed || *validate
+	hasMode := *isAllowed || *getLanguage || *getName || *getPhone || *getNextAllowed || *getNextAllowedDay || *validate
 	if !hasMode || len(args) != wantArgs {
-		log.Fatal("Usage: program -config <path> <-is-allowed|-phone|-language|-name|-next-allowed> [-debug] <extension>\n       program -config <path> -validate")
+		log.Fatal("Usage: program -config <path> <-is-allowed|-phone|-language|-name|-next-allowed|-next-allowed-day> [-debug] <extension>\n       program -config <path> -validate")
 	}
 
 	if *configPath == "" {
@@ -165,6 +166,15 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Print(next)
+		return
+	}
+
+	if *getNextAllowedDay {
+		day, err := nextAllowedDayForCaller(person, config.CallerTimezone, time.Now())
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Print(day)
 		return
 	}
 
@@ -280,22 +290,47 @@ func roundUpToQuarter(t time.Time) time.Time {
 	return t
 }
 
-func nextAllowedForCaller(ext Extension, callerTimezone string, now time.Time) (string, error) {
+func nextAllowedInCallerTZ(ext Extension, callerTimezone string, now time.Time) (time.Time, error) {
 	if callerTimezone == "" {
-		return "", errors.New("caller_timezone is not set")
+		return time.Time{}, errors.New("caller_timezone is not set")
 	}
 
 	callerLoc, err := time.LoadLocation(callerTimezone)
 	if err != nil {
-		return "", err
+		return time.Time{}, err
 	}
 
 	start, err := nextAllowedStart(ext, now)
 	if err != nil {
+		return time.Time{}, err
+	}
+
+	return roundUpToQuarter(start.In(callerLoc)), nil
+}
+
+func nextAllowedForCaller(ext Extension, callerTimezone string, now time.Time) (string, error) {
+	next, err := nextAllowedInCallerTZ(ext, callerTimezone, now)
+	if err != nil {
 		return "", err
 	}
 
-	return roundUpToQuarter(start.In(callerLoc)).Format("1504"), nil
+	return next.Format("1504"), nil
+}
+
+func nextAllowedDayForCaller(ext Extension, callerTimezone string, now time.Time) (string, error) {
+	next, err := nextAllowedInCallerTZ(ext, callerTimezone, now)
+	if err != nil {
+		return "", err
+	}
+
+	now = now.In(next.Location())
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	nextDay := time.Date(next.Year(), next.Month(), next.Day(), 0, 0, 0, 0, time.UTC)
+	if nextDay.After(today) {
+		return "tomorrow", nil
+	}
+
+	return "today", nil
 }
 
 func minuteOfDay(t time.Time) int {

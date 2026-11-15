@@ -372,3 +372,46 @@ func TestNextAllowedForCaller(t *testing.T) {
 		})
 	}
 }
+
+func TestNextAllowedDayForCaller(t *testing.T) {
+	newYork := mustLoadLocation(t, "America/New_York")
+
+	from := func(tz, allowedFrom string) Extension {
+		return Extension{Ext: "101", Timezone: tz, AllowedFrom: allowedFrom, AllowedUntil: "20:00"}
+	}
+	brazil := from("America/Sao_Paulo", "09:00")
+	at := func(hour, minute int) time.Time {
+		return time.Date(2026, time.November, 15, hour, minute, 0, 0, newYork)
+	}
+
+	tests := []struct {
+		name   string
+		ext    Extension
+		caller string
+		now    time.Time
+		want   string
+	}{
+		{"evening call", brazil, "America/New_York", at(21, 0), "tomorrow"},
+		{"early morning call", brazil, "America/New_York", at(6, 0), "today"},
+		{"after midnight call", brazil, "America/New_York", at(1, 0), "today"},
+		{"rounded past midnight", from("America/New_York", "23:50"), "America/New_York", at(23, 55), "tomorrow"},
+		{"contact already past midnight", brazil, "America/New_York", at(23, 0), "tomorrow"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := nextAllowedDayForCaller(tt.ext, tt.caller, tt.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("nextAllowedDayForCaller(from %s %q, %q, %s) = %q, want %q",
+					tt.ext.AllowedFrom, tt.ext.Timezone, tt.caller, tt.now.Format(clockLayout), got, tt.want)
+			}
+		})
+	}
+
+	if got, err := nextAllowedDayForCaller(brazil, "", at(21, 0)); err == nil {
+		t.Errorf("nextAllowedDayForCaller() without caller timezone = %q, want error", got)
+	}
+}
